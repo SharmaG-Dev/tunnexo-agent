@@ -14,7 +14,7 @@ for platform in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64;
   if [[ "$os" == windows ]]; then executable=tunnexo.exe; fi
   echo "Building $name"
   CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags="-s -w" -o "$package/$executable" .
-  cp LICENSE README.md TUNNEXO_SETUP.md .env.example "$package/"
+  cp LICENSE README.md TUNNEXO_SETUP.md SERVER_GUEST_INTEGRATION.md .env.example "$package/"
   case "$platform" in
     darwin/arm64) folder=macos-arm64 ;;
     darwin/amd64) folder=macos-intel ;;
@@ -28,7 +28,7 @@ for platform in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64;
     tar -czf "$stage/$name.tar.gz" -C "$package" .
     mv "$stage/$name.tar.gz" "dist/$name.tar.gz"
   else
-    (cd "$package" && zip -q "$stage/$name.zip" "$executable" LICENSE README.md TUNNEXO_SETUP.md .env.example)
+    (cd "$package" && zip -q "$stage/$name.zip" "$executable" LICENSE README.md TUNNEXO_SETUP.md SERVER_GUEST_INTEGRATION.md .env.example)
     mv "$stage/$name.zip" "dist/$name.zip"
   fi
 done

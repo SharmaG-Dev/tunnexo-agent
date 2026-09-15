@@ -20,15 +20,25 @@ func LoadConfig(path, target string) (Config, error) {
 	get := func(key string) string {
 		return configValue(values, key)
 	}
+	environment := get("ENV_ENVIRONMENT")
+	if environment == "" {
+		environment = "production"
+	}
+	if environment != "production" && environment != "development" {
+		return Config{}, fmt.Errorf("ENV_ENVIRONMENT must be production or development")
+	}
+	defaultServer := DefaultServerURL
+	if environment == "development" {
+		defaultServer = "http://localhost:3000/tunnel"
+	}
 	config := Config{
-		ServerURL:   configValueOrDefault(values, "TUNNEXO_SERVER_URL", DefaultServerURL),
+		Environment: environment,
+		ServerURL:   configValueOrDefault(values, "TUNNEXO_SERVER_URL", defaultServer),
 		Token:       get("TUNNEXO_AGENT_TOKEN"),
 		LocalTarget: strings.TrimSpace(target),
 	}
 	prefix := configValueOrDefault(values, "TUNNEXO_AGENT_NAME_PREFIX", DefaultAgentNamePrefix)
-	if config.Token == "" {
-		return Config{}, fmt.Errorf("automatic agent registration is not configured yet; a server-issued TUNNEXO_AGENT_TOKEN is currently required in the environment or optional .env file")
-	}
+
 	if _, err := validateURL(config.ServerURL); err != nil {
 		return Config{}, fmt.Errorf("TUNNEXO_SERVER_URL must be an absolute HTTP(S) URL without credentials or fragment")
 	}

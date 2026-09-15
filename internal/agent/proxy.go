@@ -40,12 +40,7 @@ func (a *Agent) handleHTTPRequest(
 			requestData.Path,
 		)
 
-	fmt.Printf(
-		"→ [%s] %s %s\n",
-		requestData.RequestID,
-		requestData.Method,
-		targetURL,
-	)
+	fmt.Println("→ Forwarding request")
 
 	var requestBody io.Reader
 
@@ -88,11 +83,7 @@ func (a *Agent) handleHTTPRequest(
 
 	if err != nil {
 
-		fmt.Printf(
-			"✗ [%s] Local target error: %v\n",
-			requestData.RequestID,
-			err,
-		)
+		fmt.Println("✗ Local target request failed")
 
 		a.sendBadGateway(
 			requestData.RequestID,
@@ -166,18 +157,13 @@ func (a *Agent) handleHTTPRequest(
 			tunnexoResponse,
 		); err != nil {
 
-		fmt.Printf(
-			"✗ [%s] Failed sending response: %v\n",
-			requestData.RequestID,
-			err,
-		)
+		fmt.Println("✗ Failed sending response")
 
 		return
 	}
 
 	fmt.Printf(
-		"← [%s] %d %s\n",
-		requestData.RequestID,
+		"← %d %s\n",
 		response.StatusCode,
 		http.StatusText(response.StatusCode),
 	)
@@ -472,8 +458,7 @@ func (a *Agent) sendBadGateway(
 		); err != nil {
 
 		fmt.Println(
-			"Failed to send 502 response:",
-			err,
+			"Failed to send 502 response",
 		)
 	}
 }

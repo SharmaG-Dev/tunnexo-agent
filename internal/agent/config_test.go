@@ -36,9 +36,8 @@ func TestConfigValidationAndEnvironmentPrecedence(t *testing.T) {
 	if err := os.WriteFile(path, []byte("TUNNEXO_AGENT_TOKEN=file-token\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := LoadConfig(path, "http://localhost:4000")
-	if err == nil || !strings.Contains(err.Error(), "TUNNEXO_AGENT_TOKEN") {
-		t.Fatal("empty environment must override file token")
+	if got := configValue(map[string]string{"TUNNEXO_AGENT_TOKEN": "file-token"}, "TUNNEXO_AGENT_TOKEN"); got != "" {
+		t.Fatal("empty environment must select guest mode")
 	}
 	t.Setenv("TUNNEXO_AGENT_TOKEN", "test-token")
 	for _, target := range []string{"", "localhost:4000", "ftp://localhost", "http://user:password@localhost", "http://localhost/#fragment", "http://localhost/?q=1"} {
@@ -110,8 +109,12 @@ func TestPublicDefaultsAndOverrides(t *testing.T) {
 	if got := configValueOrDefault(values, "TUNNEXO_SERVER_URL", DefaultServerURL); got != DefaultServerURL {
 		t.Fatalf("empty override should select public default: %q", got)
 	}
+}
+
+func TestInvalidEnvironment(t *testing.T) {
+	t.Setenv("ENV_ENVIRONMENT", "invalid")
 	_, err := LoadConfig(filepath.Join(t.TempDir(), "missing.env"), "http://localhost:4000")
-	if err == nil || !strings.Contains(err.Error(), "automatic agent registration") {
-		t.Fatalf("expected actionable registration error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "ENV_ENVIRONMENT") {
+		t.Fatal("invalid environment accepted")
 	}
 }
