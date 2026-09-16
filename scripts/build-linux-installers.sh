@@ -3,6 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 command -v dpkg-deb >/dev/null
 command -v rpmbuild >/dev/null
+command -v rpm >/dev/null
 version=$(sed -n 's/^const version = "\([^"]*\)"/\1/p' cmd/version.go)
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 stage=$(mktemp -d)
@@ -36,7 +37,6 @@ Release: 1
 Summary: Share local web applications with a public URL
 License: MIT
 URL: https://tunnexo.live
-BuildArch: $rpmarch
 Requires: ca-certificates
 AutoReqProv: no
 %description
@@ -49,6 +49,14 @@ cp "$root/usr/share/doc/tunnexo/"* %{buildroot}/usr/share/doc/tunnexo/
 /usr/bin/tunnexo
 /usr/share/doc/tunnexo
 SPEC
+  # GOARCH selects the binary; --target selects RPM metadata. BuildArch would
+  # additionally require host compatibility and reject ARM64 on an x86 runner.
   rpmbuild --define "_topdir $top" --define '__os_install_post %{nil}' --target "$rpmarch" -bb "$top/SPECS/tunnexo.spec"
-  cp "$top/RPMS/$rpmarch/tunnexo-$version-1.$rpmarch.rpm" "dist/installers/tunnexo_${version}_linux_${arch}.rpm"
+  rpmfile="$top/RPMS/$rpmarch/tunnexo-$version-1.$rpmarch.rpm"
+  actual_arch=$(rpm -qp --queryformat '%{ARCH}' "$rpmfile")
+  if [[ "$actual_arch" != "$rpmarch" ]]; then
+    echo "RPM architecture mismatch: expected $rpmarch, got $actual_arch" >&2
+    exit 1
+  fi
+  cp "$rpmfile" "dist/installers/tunnexo_${version}_linux_${arch}.rpm"
 done
