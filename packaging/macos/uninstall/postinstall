@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+# Remove only files owned by the Tunnexo installer, never user configuration.
+for file in tunnexo LICENSE README.md TUNNEXO_SETUP.md; do
+  rm -f "/usr/local/lib/tunnexo/$file"
+done
+if [ -f /etc/paths.d/tunnexo ] && [ "$(cat /etc/paths.d/tunnexo)" = /usr/local/lib/tunnexo ]; then
+  rm -f /etc/paths.d/tunnexo
+fi
+rmdir /usr/local/lib/tunnexo 2>/dev/null || true
+pkgutil --forget live.tunnexo.agent >/dev/null 2>&1 || true
+exit 0

@@ -1,0 +1,58 @@
+name: Build installers
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  installers:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+      - run: go vet ./...
+      - if: runner.os == 'macOS'
+        run: |
+          bash scripts/build-macos-installer.sh
+          arch=$(uname -m)
+          if [ "$arch" = x86_64 ]; then arch=amd64; fi
+          sudo installer -pkg dist/installers/*_macos_${arch}.pkg -target /
+          /usr/local/lib/tunnexo/tunnexo version
+          /usr/libexec/path_helper -s | grep /usr/local/lib/tunnexo
+          sudo installer -pkg dist/installers/*_macos_uninstall.pkg -target /
+          test ! -e /usr/local/lib/tunnexo/tunnexo
+          test ! -e /etc/paths.d/tunnexo
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+          bash scripts/build-linux-installers.sh
+          sudo apt-get install -y ./dist/installers/*linux_amd64.deb
+          tunnexo version
+          sudo apt-get remove -y tunnexo
+          test ! -e /usr/bin/tunnexo
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 4.0.6
+          wix extension add --global WixToolset.UI.wixext/4.0.6
+          ./scripts/build-windows-installer.ps1
+          $msi = (Get-ChildItem dist/installers/*.msi).FullName
+          $p = Start-Process msiexec.exe -ArgumentList @('/i', "`"$msi`"", '/qn', '/norestart') -Wait -PassThru
+          if ($p.ExitCode -notin @(0,3010)) { throw 'Installation failed' }
+          & 'C:\Program Files\Tunnexo\tunnexo.exe' version
+          $p = Start-Process msiexec.exe -ArgumentList @('/x', "`"$msi`"", '/qn', '/norestart') -Wait -PassThru
+          if ($p.ExitCode -notin @(0,3010)) { throw 'Uninstall failed' }
+          if (Test-Path 'C:\Program Files\Tunnexo\tunnexo.exe') { throw 'Binary left after uninstall' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ runner.os }}
+          path: dist/installers/*
+          if-no-files-found: error
