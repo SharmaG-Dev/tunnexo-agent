@@ -9,28 +9,38 @@ import (
 	"strings"
 )
 
+const DefaultServerURL = "https://tunnexo.live/tunnel"
+const DefaultAgentNamePrefix = "tunnexo"
+
 func LoadConfig(path, target string) (Config, error) {
 	values, err := readEnv(path)
 	if err != nil {
 		return Config{}, err
 	}
 	get := func(key string) string {
-		if value, ok := os.LookupEnv(key); ok {
-			return strings.TrimSpace(value)
-		}
-		return strings.TrimSpace(values[key])
+		return configValue(values, key)
 	}
-	config := Config{ServerURL: get("PORTUNE_SERVER_URL"), Token: get("PORTUNE_AGENT_TOKEN"), LocalTarget: strings.TrimSpace(target)}
-	prefix := get("PORTUNE_AGENT_NAME_PREFIX")
-	for _, setting := range []struct{ key, value string }{
-		{"PORTUNE_SERVER_URL", config.ServerURL}, {"PORTUNE_AGENT_TOKEN", config.Token}, {"PORTUNE_AGENT_NAME_PREFIX", prefix},
-	} {
-		if setting.value == "" {
-			return Config{}, fmt.Errorf("%s is required in .env or environment", setting.key)
-		}
+	environment := get("ENV_ENVIRONMENT")
+	if environment == "" {
+		environment = "production"
 	}
+	if environment != "production" && environment != "development" {
+		return Config{}, fmt.Errorf("ENV_ENVIRONMENT must be production or development")
+	}
+	defaultServer := DefaultServerURL
+	if environment == "development" {
+		defaultServer = "http://localhost:3000/tunnel"
+	}
+	config := Config{
+		Environment: environment,
+		ServerURL:   configValueOrDefault(values, "TUNNEXO_SERVER_URL", defaultServer),
+		Token:       get("TUNNEXO_AGENT_TOKEN"),
+		LocalTarget: strings.TrimSpace(target),
+	}
+	prefix := configValueOrDefault(values, "TUNNEXO_AGENT_NAME_PREFIX", DefaultAgentNamePrefix)
+
 	if _, err := validateURL(config.ServerURL); err != nil {
-		return Config{}, fmt.Errorf("PORTUNE_SERVER_URL must be an absolute HTTP(S) URL without credentials or fragment")
+		return Config{}, fmt.Errorf("TUNNEXO_SERVER_URL must be an absolute HTTP(S) URL without credentials or fragment")
 	}
 	u, err := validateURL(config.LocalTarget)
 	if err != nil {
@@ -41,7 +51,7 @@ func LoadConfig(path, target string) (Config, error) {
 	}
 	for _, c := range prefix {
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-') {
-			return Config{}, fmt.Errorf("PORTUNE_AGENT_NAME_PREFIX must contain only letters, digits or hyphens")
+			return Config{}, fmt.Errorf("TUNNEXO_AGENT_NAME_PREFIX must contain only letters, digits or hyphens")
 		}
 	}
 	config.AgentIP, err = localIP()
@@ -51,6 +61,28 @@ func LoadConfig(path, target string) (Config, error) {
 	config.AgentName = config.AgentIP + "-" + prefix + "-agent"
 	config.TunnelName = u.Hostname()
 	return config, nil
+}
+
+// New names take precedence over legacy names; environment overrides files
+// for each name. Explicit empty values are preserved for validation.
+func configValue(values map[string]string, key string) string {
+	legacy := strings.Replace(key, "TUNNEXO_", "PORTUNE_", 1)
+	for _, name := range []string{key, legacy} {
+		if value, ok := os.LookupEnv(name); ok {
+			return strings.TrimSpace(value)
+		}
+		if value, ok := values[name]; ok {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func configValueOrDefault(values map[string]string, key, fallback string) string {
+	if value := configValue(values, key); value != "" {
+		return value
+	}
+	return fallback
 }
 
 func validateURL(raw string) (*url.URL, error) {

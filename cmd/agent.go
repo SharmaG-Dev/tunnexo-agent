@@ -12,7 +12,7 @@ var localTarget string
 
 var agentCmd = &cobra.Command{
 	Use:   "agent --target <local-url>",
-	Short: "Start Portune tunnel agent",
+	Short: "Start Tunnexo tunnel agent",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		config, err := agent.LoadConfig(".env", localTarget)

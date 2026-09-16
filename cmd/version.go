@@ -10,10 +10,10 @@ const version = "0.1.0"
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Show Portune Agent version",
+	Short: "Show Tunnexo Agent version",
 
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("Portune Agent v%s\n", version)
+		fmt.Printf("Tunnexo Agent v%s\n", version)
 	},
 }
 

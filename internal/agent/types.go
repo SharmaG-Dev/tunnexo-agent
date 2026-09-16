@@ -1,7 +1,8 @@
 package agent
 
 type Config struct {
-	ServerURL string
+	Environment string
+	ServerURL   string
 
 	Token string
 

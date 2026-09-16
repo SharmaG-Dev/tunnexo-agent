@@ -8,11 +8,11 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "portune",
-	Short: "Portune secure tunnel agent",
+	Use:   "tunnexo",
+	Short: "Tunnexo secure tunnel agent",
 	Long: `
-Portune Agent connects local applications
-to the Portune public tunnel network.
+Tunnexo Agent connects local applications
+to the Tunnexo public tunnel network.
 `,
 }
 

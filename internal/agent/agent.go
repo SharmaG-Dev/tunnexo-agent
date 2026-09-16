@@ -30,16 +30,17 @@ func New(config Config) *Agent {
 
 func (a *Agent) Run(ctx context.Context) error {
 	fmt.Println()
-	fmt.Println("Portune Agent")
+	fmt.Println("Tunnexo Agent")
 	fmt.Println("================================")
 
-	fmt.Println("Server :", a.config.ServerURL)
-	fmt.Println("Target :", a.config.LocalTarget)
-
-	fmt.Println("Agent :", a.config.AgentName)
-	fmt.Println("Local IP :", a.config.AgentIP)
-
-	fmt.Println()
+	if a.config.Token == "" {
+		fmt.Println("Connecting as guest...")
+		token, err := requestGuestToken(ctx, a.config.ServerURL, &http.Client{})
+		if err != nil {
+			return err
+		}
+		a.config.Token = token
+	}
 
 	options := socketio.DefaultOptions()
 
@@ -64,8 +65,7 @@ func (a *Agent) Run(ctx context.Context) error {
 
 	if err != nil {
 		return fmt.Errorf(
-			"failed to connect to Portune server: %w",
-			err,
+			"failed to connect to Tunnexo server",
 		)
 	}
 
@@ -76,11 +76,11 @@ func (a *Agent) Run(ctx context.Context) error {
 	<-ctx.Done()
 
 	fmt.Println()
-	fmt.Println("Stopping Portune Agent...")
+	fmt.Println("Stopping Tunnexo Agent...")
 
 	a.socket.Disconnect()
 
-	fmt.Println("Portune Agent stopped.")
+	fmt.Println("Tunnexo Agent stopped.")
 
 	return nil
 }
@@ -91,12 +91,9 @@ func (a *Agent) registerEvents() {
 		"connect",
 		func(args ...any) {
 
-			fmt.Println("✓ Connected to Portune Server")
+			fmt.Println("✓ Connected to Tunnexo Server")
 
-			fmt.Println(
-				"  Socket ID:",
-				a.socket.Id(),
-			)
+			fmt.Println("Connection ready")
 		},
 	)
 
@@ -115,31 +112,6 @@ func (a *Agent) registerEvents() {
 			}
 			fmt.Println("✓ Agent authenticated")
 
-			if len(args) > 0 {
-
-				if data, ok :=
-					args[0].(map[string]any); ok {
-
-					if agentName, ok :=
-						data["agentName"].(string); ok {
-
-						fmt.Println(
-							"  Agent Name:",
-							agentName,
-						)
-					}
-
-					if agentID,
-						ok := data["agentId"].(float64); ok {
-
-						fmt.Println(
-							"  Agent ID:",
-							int(agentID),
-						)
-					}
-				}
-			}
-
 			a.createTunnel()
 		},
 	)
@@ -148,10 +120,7 @@ func (a *Agent) registerEvents() {
 		"connect_error",
 		func(args ...any) {
 
-			fmt.Println(
-				"✗ Connection error:",
-				args,
-			)
+			fmt.Println("✗ Connection failed")
 		},
 	)
 
@@ -159,10 +128,7 @@ func (a *Agent) registerEvents() {
 		"error",
 		func(args ...any) {
 
-			fmt.Println(
-				"✗ Server error:",
-				args,
-			)
+			fmt.Println("✗ Server error")
 		},
 	)
 
@@ -170,10 +136,7 @@ func (a *Agent) registerEvents() {
 		"disconnect",
 		func(args ...any) {
 
-			fmt.Println(
-				"⚠ Disconnected:",
-				args,
-			)
+			fmt.Println("⚠ Disconnected")
 		},
 	)
 
@@ -194,10 +157,7 @@ func (a *Agent) registerEvents() {
 
 			if !ok {
 
-				fmt.Printf(
-					"Invalid http:request payload: %#v\n",
-					args[0],
-				)
+				fmt.Println("Invalid http:request payload")
 
 				return
 			}
@@ -226,10 +186,7 @@ func (a *Agent) createTunnel() {
 
 			if err != nil {
 
-				fmt.Println(
-					"✗ Tunnel creation failed:",
-					err,
-				)
+				fmt.Println("✗ Tunnel creation failed")
 
 				return
 			}
@@ -248,10 +205,7 @@ func (a *Agent) createTunnel() {
 
 			if !ok {
 
-				fmt.Printf(
-					"✗ Invalid tunnel response: %#v\n",
-					args[0],
-				)
+				fmt.Println("✗ Invalid tunnel response")
 
 				return
 			}
@@ -261,37 +215,20 @@ func (a *Agent) createTunnel() {
 
 			if !success {
 
-				fmt.Println(
-					"✗ Tunnel creation failed:",
-					response["error"],
-				)
+				fmt.Println("✗ Tunnel creation failed")
 
 				return
 			}
 
+			publicURL, reason := validatedPublicURL(response["url"], a.config.Token, a.config.ServerURL, a.config.Environment)
+			if reason != "" {
+				fmt.Println("✗ Public URL rejected:", reason)
+				return
+			}
 			fmt.Println()
 			fmt.Println("✓ Tunnel Established!")
 			fmt.Println("================================")
-
-			fmt.Println(
-				"Tunnel ID :",
-				response["tunnelId"],
-			)
-
-			fmt.Println(
-				"Subdomain :",
-				response["subdomain"],
-			)
-
-			fmt.Println(
-				"Public URL:",
-				response["url"],
-			)
-
-			fmt.Println(
-				"Forwarding:",
-				a.config.LocalTarget,
-			)
+			fmt.Println("Public URL:", publicURL)
 
 			fmt.Println("================================")
 			fmt.Println()
