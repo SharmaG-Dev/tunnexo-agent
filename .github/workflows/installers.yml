@@ -14,6 +14,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Remove previous installer outputs
+        shell: bash
+        run: |
+          rm -rf dist/installers
+          mkdir -p dist/installers
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -53,7 +58,22 @@ jobs:
           if ($p.ExitCode -notin @(0,3010)) { throw 'Uninstall failed' }
           if (Test-Path 'C:\Program Files\Tunnexo\tunnexo.exe') { throw 'Binary left after uninstall' }
       - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
         with:
-          name: installers-${{ runner.os }}
-          path: dist/installers/*
+          name: installers-macOS
+          path: dist/installers/tunnexo_*_macos_*.pkg
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: installers-Windows
+          path: dist/installers/tunnexo_*_windows_amd64.msi
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: installers-Linux
+          path: |
+            dist/installers/tunnexo_*_linux_*.deb
+            dist/installers/tunnexo_*_linux_*.rpm
           if-no-files-found: error
